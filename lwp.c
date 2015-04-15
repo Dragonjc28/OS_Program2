@@ -4,29 +4,33 @@
 
 #define MAX_THREADS 50
 
-void init() {
-
-}
-
-void shutdown() {
-
-}
-
-void admit(thread new) {
-
-}
-
-void remove(thread victim) {
-
-}
-
-static scheduler sched = {NULL, NULL, admit, remove, NULL};
-static scheduler *RoundRoubin = &sched;
-
+/* GLOBALS */
+static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
+static rfile returnContext; /* pointer to original return context */
 
 static int lwpIndex = 0;
 static tid_t tidCount = 1;
-static context lwpThreads[MAX_THREADS];
+static context lwpThreads[MAX_THREADS]
+static void* returnSP; /* pointer to the return address */
+
+
+void rr_init() {
+
+}
+
+void rr_shutdown() {
+
+}
+
+void rr_admit(thread new) {
+
+}
+
+void rr_remove(thread victim) {
+
+}
+
+;
 
 /*The job of lwp create() is to set up a thread’s context
 so that when it is selected by the scheduler to run and one of
@@ -58,35 +62,64 @@ tid_t lwp_gettid(void) {
    return lwpThreads[lwpIndex]->tid;
 }
 
-/* yield the CPU to another LWP */
+/* yield the CPU to another LWP 
+ * save current stack 
+ * make it look like the "next" thread is
+ * going to be called by putting it on top of
+ * the stack*/
 void lwp_yield(void) {
 
 }
 
-/* start the LWP system */
+/* start the LWP system
+ * 1. save "real" where lwp can find it
+ * 2. call scheduler, pick a lwp to run
+ * 3. load the thread's context with swap_rfiles()
+ *
+ * */
 void lwp_start(void) {
-   
+	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
+	thread *t = sched.next();
+
+	load_context(t->context); 
 }
 
-/* stop the LWP system */
+/* stop the LWP system. 
+ * RESTORE the initial system context by returning to the global*/
 void lwp_stop(void) {
-   
+	SetSP(returnSP);
+	
+ 	load_context(returnContext); /* load the registers from the return context global */
 }
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
 	for (thread t = fun.next; t; t = RoundRobin->next) {
-		RoundRobin->remove(t);
+		sched.remove(t);
 		fun.admit(t);
 	}
+	
+	if (sched.shutDown != NULL)
+		sched.shutDown();
+	
+	sched = *(fun);
+
 }
 
 /* find out what the current scheduler is */
 scheduler lwp_get_scheduler(void) {
-   
+  return sched; 
 }
 
 /* map a thread id to a context */
 thread tid2thread(tid_t tid) {
-   
+	int i;
+
+	thread* first = scheduler.next();
+  	for (i = 0; i < MAX_THREADS; i++) {
+		if (lwpThreads[i]->tid == tid)
+			return *(lwpThreads[i]);
+	}
+	return NULL;
+ 
 }
