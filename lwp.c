@@ -64,7 +64,8 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    iter->tid = tidCount++;
    iter->stack = malloc(stacksize * sizeof(unsigned long));
-   
+  
+   *(iter->stack) = function; /* setting return address here */ 
    if(iter->lib_two == NULL)
       return (tid_t) -1;
    
@@ -102,7 +103,12 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
 
 /* terminates the calling LWP */
 void lwp_exit(void) {
-   
+	context ctx = sched.next();
+	
+	if (!ctx) {
+		lwp_stop();
+	}
+	
 }
 
 /* return thread ID of the calling LWP */
@@ -117,6 +123,17 @@ tid_t lwp_gettid(void) {
  * the stack
  */
 void lwp_yield(void) {
+	thread *t = sched.next();
+	rfile currentRegisters;
+
+	save_context(currentRegisters); /* how to make this last? */
+
+	if (t != NULL) {
+		load_context(thread->state);
+
+	}
+	else 	
+		lwp_stop();
 
 }
 
