@@ -13,9 +13,10 @@
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
 static rfile returnContext; /* pointer to original return context */
 
-static int lwpIndex = 0;
+static int lwpIndex = 1;
 static tid_t tidCount = 1;
-static context lwpThreads[MAX_THREADS];
+//static context lwpThreads[MAX_THREADS];
+static context lwpThreads;
 static void* returnSP; /* pointer to the return address */
 
 
@@ -41,6 +42,38 @@ void rr_remove(thread victim) {
  * to it, it will start executing where you want it to.
  */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
+   context *iter = lwpThreads;
+   
+   if(lwpIndex == 1) {
+      iter->lib_one = NULL;
+      iter->lib_two = NULL;
+   }
+   else {
+      while(iter->lib_two != NULL)
+         iter = iter->lib_two;
+      
+      iter->lib_two = malloc(sizeof(context));
+      
+      if(iter->lib_two == NULL)
+         return (tid_t) -1;
+      
+      iter->lib_two->lib_one = iter;
+      iter = iter->lib_two;
+      iter->lib_two = NULL;
+   }
+   
+   iter->tid = tidCount++;
+   iter->stack = malloc(stacksize * sizeof(unsigned long));
+   
+   if(iter->lib_two == NULL)
+      return (tid_t) -1;
+   
+   iter->stacksize = stacksize;
+   iter->state = returnContext;
+   
+   
+   
+   /*
    if(tidCount > MAX_THREADS)
       return (tid_t) -1;
    
@@ -52,10 +85,19 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    lwpThreads[lwpIndex]->stacksize = stacksize;
    
+   //EXPERIMENTAL CODE
+   lwpThreads[lwpIndex]->state = returnContext;
    
-   
+   if(tidCount - 1 == 1) {
+      lwpThreads[lwpIndex]->lib_one = NULL;
+      lwpThreads[lwpIndex]->lib_two = NULL;
+   }
+   else {
+      
+   }
    
    return lwpThreads[lwpIndex++]->tid;
+   */
 }
 
 /* terminates the calling LWP */
