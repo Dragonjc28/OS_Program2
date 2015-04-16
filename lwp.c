@@ -1,3 +1,8 @@
+/* Eric Yun & Justin Roll
+ * CPE 453
+ * Program 2
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "lwp.h"
@@ -10,7 +15,7 @@ static rfile returnContext; /* pointer to original return context */
 
 static int lwpIndex = 0;
 static tid_t tidCount = 1;
-static context lwpThreads[MAX_THREADS]
+static context lwpThreads[MAX_THREADS];
 static void* returnSP; /* pointer to the return address */
 
 
@@ -30,12 +35,11 @@ void rr_remove(thread victim) {
 
 }
 
-;
-
-/*The job of lwp create() is to set up a thread’s context
-so that when it is selected by the scheduler to run and one of
-lwp_yield(),lwp_start(),lwp_exit(),returns 1
-to it, it will start executing where you want it to. */
+/* The job of lwp create() is to set up a thread’s context
+ * so that when it is selected by the scheduler to run and one of
+ * lwp_yield(), lwp_start(), lwp_exit(), returns 1
+ * to it, it will start executing where you want it to.
+ */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    if(tidCount > MAX_THREADS)
       return (tid_t) -1;
@@ -50,6 +54,8 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    
    
+   
+   return lwpThreads[lwpIndex++]->tid;
 }
 
 /* terminates the calling LWP */
@@ -57,7 +63,7 @@ void lwp_exit(void) {
    
 }
 
-/* return thread ID of thecalling LWP */
+/* return thread ID of the calling LWP */
 tid_t lwp_gettid(void) {
    return lwpThreads[lwpIndex]->tid;
 }
@@ -66,7 +72,8 @@ tid_t lwp_gettid(void) {
  * save current stack 
  * make it look like the "next" thread is
  * going to be called by putting it on top of
- * the stack*/
+ * the stack
+ */
 void lwp_yield(void) {
 
 }
@@ -75,17 +82,16 @@ void lwp_yield(void) {
  * 1. save "real" where lwp can find it
  * 2. call scheduler, pick a lwp to run
  * 3. load the thread's context with swap_rfiles()
- *
- * */
+ */
 void lwp_start(void) {
 	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
 	thread *t = sched.next();
-
 	load_context(t->context); 
 }
 
 /* stop the LWP system. 
- * RESTORE the initial system context by returning to the global*/
+ * RESTORE the initial system context by returning to the global
+ */
 void lwp_stop(void) {
 	SetSP(returnSP);
 	
@@ -94,13 +100,13 @@ void lwp_stop(void) {
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-	for (thread t = fun.next; t; t = RoundRobin->next) {
+	for(thread t = fun.next; t; t = RoundRobin->next) {
 		sched.remove(t);
 		fun.admit(t);
 	}
 	
-	if (sched.shutDown != NULL)
-		sched.shutDown();
+	if(sched.shutdown != NULL)
+		sched.shutdown();
 	
 	sched = *(fun);
 
@@ -108,7 +114,7 @@ void lwp_set_scheduler(scheduler fun) {
 
 /* find out what the current scheduler is */
 scheduler lwp_get_scheduler(void) {
-  return sched; 
+   return sched; 
 }
 
 /* map a thread id to a context */
@@ -116,8 +122,8 @@ thread tid2thread(tid_t tid) {
 	int i;
 
 	thread* first = scheduler.next();
-  	for (i = 0; i < MAX_THREADS; i++) {
-		if (lwpThreads[i]->tid == tid)
+  	for(i = 0; i < MAX_THREADS; i++) {
+		if(lwpThreads[i]->tid == tid)
 			return *(lwpThreads[i]);
 	}
 	return NULL;
