@@ -7,34 +7,14 @@
 #include <stdlib.h>
 #include "lwp.h"
 
-#define MAX_THREADS 50
-
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
 static rfile returnContext; /* pointer to original return context */
 
-static int lwpIndex = 1;
+static int lwpIndex = 0;
 static tid_t tidCount = 1;
-//static context lwpThreads[MAX_THREADS];
 static context lwpThreads;
 static void* returnSP; /* pointer to the return address */
-
-
-void rr_init() {
-
-}
-
-void rr_shutdown() {
-
-}
-
-void rr_admit(thread new) {
-
-}
-
-void rr_remove(thread victim) {
-
-}
 
 /* The job of lwp create() is to set up a thread’s context
  * so that when it is selected by the scheduler to run and one of
@@ -42,9 +22,13 @@ void rr_remove(thread victim) {
  * to it, it will start executing where you want it to.
  */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
+   unsigned long *tempSP;
    context *iter = lwpThreads;
    
-   if(lwpIndex == 1) {
+   /* assign null value to thread pointers if only one thread created, 
+    * else set up doubly linked list of threads.
+    */
+   if(lwpIndex == 0) {
       iter->lib_one = NULL;
       iter->lib_two = NULL;
    }
@@ -54,6 +38,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
       
       iter->lib_two = malloc(sizeof(context));
       
+      /* return error value if malloc fails */
       if(iter->lib_two == NULL)
          return (tid_t) -1;
       
@@ -62,43 +47,25 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
       iter->lib_two = NULL;
    }
    
+   /* assign tid and stack to thread */
    iter->tid = tidCount++;
    iter->stack = malloc(stacksize * sizeof(unsigned long));
   
-   *(iter->stack) = function; /* setting return address here */ 
+   /* return error value if malloc fails */
    if(iter->lib_two == NULL)
       return (tid_t) -1;
    
+   /* assign the size of the stack and registers to the thread */
    iter->stacksize = stacksize;
    iter->state = returnContext;
    
-   
-   
-   /*
-   if(tidCount > MAX_THREADS)
-      return (tid_t) -1;
-   
-   lwpThreads[lwpIndex]->tid = tidCount++;
-   lwpThreads[lwpIndex]->stack = malloc(stacksize * sizeof(unsigned long));
-   
-   if(lwpThreads[lwpIndex]->stack == NULL)
-      return (tid_t) -1;
-   
-   lwpThreads[lwpIndex]->stacksize = stacksize;
-   
-   //EXPERIMENTAL CODE
-   lwpThreads[lwpIndex]->state = returnContext;
-   
-   if(tidCount - 1 == 1) {
-      lwpThreads[lwpIndex]->lib_one = NULL;
-      lwpThreads[lwpIndex]->lib_two = NULL;
-   }
-   else {
-      
-   }
+   /* assign function parameters to stack, including return address */
+   tempSP = iter->stack;
+   *(--tempSP) = argument;
+   *(--tempSP) = lwp_exit(); // return address? TEST CODE
+   *(--tempSP) = function;
    
    return lwpThreads[lwpIndex++]->tid;
-   */
 }
 
 /* terminates the calling LWP */
@@ -187,4 +154,21 @@ thread tid2thread(tid_t tid) {
 	}
 	return NULL;
  
+}
+
+
+void rr_init() {
+
+}
+
+void rr_shutdown() {
+
+}
+
+void rr_admit(thread new) {
+
+}
+
+void rr_remove(thread victim) {
+
 }
