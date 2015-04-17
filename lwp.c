@@ -7,14 +7,22 @@
 #include <stdlib.h>
 #include "lwp.h"
 
+#define prev lib_one
+#define next lib_two
+#define head sched_one
+
+
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
 static rfile returnContext; /* pointer to original return context */
 
+static context runningThread; /* global for the currently running thread */
 static int lwpIndex = 0;
 static tid_t tidCount = 1;
 static context lwpThreads;
 static void* returnSP; /* pointer to the return address */
+
+
 
 /* The job of lwp create() is to set up a thread’s context
  * so that when it is selected by the scheduler to run and one of
@@ -29,31 +37,29 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
     * else set up doubly linked list of threads.
     */
    if(lwpIndex == 0) {
-      iter->lib_one = NULL;
-      iter->lib_two = NULL;
+      iter->prev = NULL; 
+      iter->next = NULL;
+	  iter->head = iter; 
    }
    else {
-      while(iter->lib_two != NULL)
-         iter = iter->lib_two;
+      for (; iter->next; iter = iter->next)
+		;
       
-      iter->lib_two = malloc(sizeof(context));
+      iter->next = malloc(sizeof(context));
       
       /* return error value if malloc fails */
-      if(iter->lib_two == NULL)
+      if(iter->next == NULL)
          return (tid_t) -1;
       
-      iter->lib_two->lib_one = iter;
-      iter = iter->lib_two;
-      iter->lib_two = NULL;
+      iter->next->prev = iter; /* set prev to former last item in the list */
+      iter = iter->next;
+      iter->next = NULL;
    }
    
    /* assign tid and stack to thread */
    iter->tid = tidCount++;
    iter->stack = malloc(stacksize * sizeof(unsigned long));
   
-   /* return error value if malloc fails */
-   if(iter->lib_two == NULL)
-      return (tid_t) -1;
    
    /* assign the size of the stack and registers to the thread */
    iter->stacksize = stacksize;
@@ -62,10 +68,10 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    /* assign function parameters to stack, including return address */
    tempSP = iter->stack;
    *(--tempSP) = argument;
-   *(--tempSP) = lwp_exit(); // return address? TEST CODE
+   *(--tempSP) = lwp_exit;
    *(--tempSP) = function;
    
-   return lwpThreads[lwpIndex++]->tid;
+   return lwpThreads->tid;
 }
 
 /* terminates the calling LWP */
@@ -78,9 +84,21 @@ void lwp_exit(void) {
 	
 }
 
-/* return thread ID of the calling LWP */
+/* return thread ID of the calling LWP 
+ *
+ * */
 tid_t lwp_gettid(void) {
-   return lwpThreads[lwpIndex]->tid;
+	thread temp = sched.next();
+	int i = 0;	
+
+	for (; temp && temp != runningThread; i++, temp = temp->next)
+		;
+
+	if (temp != NULL)
+		return (tid_t) i;
+	else
+		return -1; /* error, couldn't find thread in linked list */
+		
 }
 
 /* yield the CPU to another LWP 
@@ -93,11 +111,12 @@ void lwp_yield(void) {
 	thread *t = sched.next();
 	rfile currentRegisters;
 
-	save_context(currentRegisters); /* how to make this last? */
+	save_context(runningThread->state); 
 
 	if (t != NULL) {
-		load_context(thread->state);
-
+		runningThread = t;
+		load_context(t->state);
+	
 	}
 	else 	
 		lwp_stop();
@@ -111,7 +130,9 @@ void lwp_yield(void) {
  */
 void lwp_start(void) {
 	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
+
 	thread *t = sched.next();
+	runningThread = t;
 	load_context(t->context); 
 }
 
@@ -126,7 +147,7 @@ void lwp_stop(void) {
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-	for(thread t = fun.next; t; t = RoundRobin->next) {
+	for(thread t = fun.next; t; t = RoundRobin->next()) {
 		sched.remove(t);
 		fun.admit(t);
 	}
@@ -135,7 +156,6 @@ void lwp_set_scheduler(scheduler fun) {
 		sched.shutdown();
 	
 	sched = *(fun);
-
 }
 
 /* find out what the current scheduler is */
@@ -146,13 +166,17 @@ scheduler lwp_get_scheduler(void) {
 /* map a thread id to a context */
 thread tid2thread(tid_t tid) {
 	int i;
+	context temp;
 
-	thread* first = scheduler.next();
-  	for(i = 0; i < MAX_THREADS; i++) {
-		if(lwpThreads[i]->tid == tid)
-			return *(lwpThreads[i]);
+	context ctx = sched->next()
+	if (ctx) {
+		for (temp = ctx->head, i = 0; temp && (tid_t) i != tid; temp = temp->next, i++)
+			;
+		if ((tid_t) i == tid)
+			return temp;
 	}
-	return NULL;
+	
+	return NULL;	
  
 }
 

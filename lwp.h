@@ -44,6 +44,8 @@ typedef struct threadinfo_st {
   rfile         state;          /* saved registers         */
   thread        lib_one;        /* Two pointers reserved   */
   thread        lib_two;        /* for use by the library  */
+  thread		prev;
+  thread 		next;
   thread        sched_one;      /* Two more for            */
   thread        sched_two;      /* schedulers to use       */
 } context;
