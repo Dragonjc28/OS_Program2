@@ -152,17 +152,17 @@ void lwp_stop(void) {
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-   thread t = fun.next();
-   
-   for ( ; t; t = RoundRobin->next()) {
+   thread t = head;
+
+   for ( ; t; t = t->next()) {
       sched.remove(t);
       fun.admit(t);
    }
-	
+
    if (sched.shutdown != NULL)
       sched.shutdown();
-	
-   sched = *(fun);
+
+   sched = *fun;
 }
 
 /* find out what the current scheduler is */
@@ -174,16 +174,17 @@ scheduler lwp_get_scheduler(void) {
 thread tid2thread(tid_t tid) {
    context iter;
    context ctx = sched->next()
-	
+
    if (ctx) {
       for (iter = head; iter && iter->tid != tid; iter = iter->next)
          ;
       if (iter->tid == tid)
          return iter;
    }
-	
+
    return NULL; 
 }
+
 /* 
  * void init(void)
  * This is to be called before any threads are admitted to the scheduler. 
@@ -204,21 +205,20 @@ thread tid2thread(tid_t tid) {
  * if there isn’t one.
 */
 
-
 void rr_init() {
-	return;
+   return;
 }
 
 void rr_shutdown() {
-	return;
+   return;
 }
 
 void rr_admit(thread new) {
-	return;
+   return;
 }
 
 void rr_remove(thread victim) {
-	return;
+   return;
 }
 
 /* find the  next thread that should run 
@@ -227,18 +227,17 @@ void rr_remove(thread victim) {
  * next is null, start at the head of the list.
  * */
 context rr_next() {
-	context iter = runningThread->next?runningThread->next:head;
+   context iter = runningThread->next?runningThread->next:head;
 
-	/* this is basically a check to see if there is only 1 entry 
- 	* in the linked list*/
-	if (runningThread == head && runningThread->next == NULL) {
-		return runningThread;
-	}	
+   /* this is basically a check to see if there is only 1 entry 
+    * in the linked list
+    */
+   if (runningThread == head && runningThread->next == NULL) {
+      return runningThread;
+   }	
 
-	for (; iter != runningThread; iter = iter->next?iter->next:head)
-		;
+   for (; iter != runningThread; iter = iter->next?iter->next:head)
+      ;
 
-	return iter;
-	
+   return iter;
 }
-
