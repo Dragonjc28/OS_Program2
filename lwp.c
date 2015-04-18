@@ -152,7 +152,7 @@ void lwp_stop(void) {
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-   thread t = fun.next;
+   thread t = fun.next();
    
    for ( ; t; t = RoundRobin->next()) {
       sched.remove(t);
@@ -172,14 +172,13 @@ scheduler lwp_get_scheduler(void) {
 
 /* map a thread id to a context */
 thread tid2thread(tid_t tid) {
-   int i = 1;
    context iter;
    context ctx = sched->next()
 	
-   if(ctx) {
-      for (iter = head; iter && i != tid; iter = iter->next, i++)
+   if (ctx) {
+      for (iter = head; iter && iter->tid != tid; iter = iter->next)
          ;
-      if (i == tid)
+      if (iter->tid == tid)
          return iter;
    }
 	
