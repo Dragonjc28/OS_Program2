@@ -31,6 +31,7 @@ static void* returnSP; /* pointer to the return address */
  */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempSP;
+   unsigned long *tempBP;
    context *iter = lwpThreads;
    
    /* assign null value to thread pointers if only one thread created, 
@@ -39,19 +40,21 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    if(lwpIndex == 0) {
       iter->prev = NULL; 
       iter->next = NULL;
-	  iter->head = iter; 
+	   iter->head = iter; 
    }
    else {
-      for (; iter->next; iter = iter->next)
-		;
-      
+      for(; iter->next; iter = iter->next)
+         ;
       iter->next = malloc(sizeof(context));
       
       /* return error value if malloc fails */
       if(iter->next == NULL)
-         return (tid_t) -1;
+         return (tid_t)-1;
       
-      iter->next->prev = iter; /* set prev to former last item in the list */
+      /* set prev to prior last item in list, 
+       * go to new last item and set next to NULL
+       */
+      iter->next->prev = iter;
       iter = iter->next;
       iter->next = NULL;
    }
@@ -60,18 +63,26 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->tid = tidCount++;
    iter->stack = malloc(stacksize * sizeof(unsigned long));
   
+   /* return error value if malloc fails */
+   if(iter->next == NULL)
+      return (tid_t)-1;
    
    /* assign the size of the stack and registers to the thread */
    iter->stacksize = stacksize;
-   iter->state = returnContext;
+   iter->state = returnContext; //necessary? ask justin
    
    /* assign function parameters to stack, including return address */
-   tempSP = iter->stack;
-   *(--tempSP) = argument;
-   *(--tempSP) = lwp_exit;
-   *(--tempSP) = function;
+   tempSP = iter->stack + stacksize;
+   *(--tempSP) = (unsigned long)argument; //should this go into rdi instead?
+   *(--tempSP) = (unsigned long)lwp_exit;
+   *(--tempSP) = (unsigned long)function;
+   tempBP = --tempSP;
+   *(--tempSP) = (unsigned long)tempBP;
    
-   return lwpThreads->tid;
+   iter->state->rsp = tempSP;
+   iter->state->rbp = tempBP;
+   
+   return iter->tid;
 }
 
 /* terminates the calling LWP */
@@ -88,17 +99,16 @@ void lwp_exit(void) {
  *
  * */
 tid_t lwp_gettid(void) {
-	thread temp = sched.next();
-	int i = 0;	
+   thread temp = sched.next();
+   int i = 0;	
 
-	for (; temp && temp != runningThread; i++, temp = temp->next)
-		;
+   for (; temp && temp != runningThread; i++, temp = temp->next)
+      ;
 
-	if (temp != NULL)
-		return (tid_t) i;
-	else
-		return -1; /* error, couldn't find thread in linked list */
-		
+   if (temp != NULL)
+      return (tid_t) i;
+   else
+      return -1; /* error, couldn't find thread in linked list */
 }
 
 /* yield the CPU to another LWP 
