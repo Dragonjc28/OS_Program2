@@ -9,17 +9,13 @@
 
 #define prev lib_one
 #define next lib_two
-#define head sched_one
-
 
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
 static rfile returnContext; /* pointer to original return context */
-
 static context runningThread; /* global for the currently running thread */
-static int lwpIndex = 0;
 static tid_t tidCount = 1;
-static context lwpThreads;
+static context head;
 static void* returnSP; /* pointer to the return address */
 
 
@@ -32,15 +28,15 @@ static void* returnSP; /* pointer to the return address */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempSP;
    unsigned long *tempBP;
-   context *iter = lwpThreads;
+   context *iter = head;
    
    /* assign null value to thread pointers if only one thread created, 
     * else set up doubly linked list of threads.
     */
-   if(lwpIndex == 0) {
+   if(tidCount == 0) {
       iter->prev = NULL; 
       iter->next = NULL;
-	   iter->head = iter; 
+	   head = iter; 
    }
    else {
       for(; iter->next; iter = iter->next)
@@ -69,7 +65,6 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    /* assign the size of the stack and registers to the thread */
    iter->stacksize = stacksize;
-   iter->state = returnContext; //necessary? ask justin
    
    /* assign function parameters to stack, including return address */
    tempSP = iter->stack + stacksize;
@@ -100,7 +95,7 @@ void lwp_exit(void) {
  * */
 tid_t lwp_gettid(void) {
    thread temp = sched.next();
-   int i = 0;	
+   int i = 1;	
 
    for (; temp && temp != runningThread; i++, temp = temp->next)
       ;
@@ -125,8 +120,8 @@ void lwp_yield(void) {
 
 	if (t != NULL) {
 		runningThread = t;
+		SetSP(t->stack);	
 		load_context(t->state);
-	
 	}
 	else 	
 		lwp_stop();
@@ -139,6 +134,7 @@ void lwp_yield(void) {
  * 3. load the thread's context with swap_rfiles()
  */
 void lwp_start(void) {
+	GetSP(returnSP);
 	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
 
 	thread *t = sched.next();
@@ -180,7 +176,7 @@ thread tid2thread(tid_t tid) {
 
 	context ctx = sched->next()
 	if (ctx) {
-		for (temp = ctx->head, i = 0; temp && (tid_t) i != tid; temp = temp->next, i++)
+		for (temp = ctx->head, i = 1; temp && (tid_t) i != tid; temp = temp->next, i++)
 			;
 		if ((tid_t) i == tid)
 			return temp;
