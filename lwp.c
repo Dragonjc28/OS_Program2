@@ -33,19 +33,19 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    /* assign null value to thread pointers if only one thread created, 
     * else set up doubly linked list of threads.
     */
-   if(tidCount == 0) {
+   if (tidCount == 1) {
       iter->prev = NULL; 
       iter->next = NULL;
 	   head = iter; 
    }
    else {
-      for(; iter->next; iter = iter->next)
+      for ( ; iter->next; iter = iter->next)
          ;
-      iter->next = malloc(sizeof(context));
+      iter->next = malloc(sizeof (context));
       
       /* return error value if malloc fails */
-      if(iter->next == NULL)
-         return (tid_t)-1;
+      if (iter->next == NULL)
+         return (tid_t) -1;
       
       /* set prev to prior last item in list, 
        * go to new last item and set next to NULL
@@ -55,25 +55,24 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
       iter->next = NULL;
    }
    
-   /* assign tid and stack to thread */
+   /* assign tid, stack, and stack size to thread */
    iter->tid = tidCount++;
-   iter->stack = malloc(stacksize * sizeof(unsigned long));
-  
-   /* return error value if malloc fails */
-   if(iter->next == NULL)
-      return (tid_t)-1;
-   
-   /* assign the size of the stack and registers to the thread */
+   iter->stack = malloc(stacksize * sizeof (unsigned long));
    iter->stacksize = stacksize;
+  
+   /* return error value if stack malloc fails */
+   if (iter->next == NULL)
+      return (tid_t)-1;
    
    /* assign function parameters to stack, including return address */
    tempSP = iter->stack + stacksize;
-   *(--tempSP) = (unsigned long)argument; //should this go into rdi instead?
-   *(--tempSP) = (unsigned long)lwp_exit;
-   *(--tempSP) = (unsigned long)function;
+   //*(--tempSP) = (unsigned long)argument;
+   *(--tempSP) = (unsigned long) lwp_exit;
+   *(--tempSP) = (unsigned long) function;
    tempBP = --tempSP;
-   *(--tempSP) = (unsigned long)tempBP;
+   *(--tempSP) = (unsigned long) tempBP;
    
+   iter->stack->rdi = (unsigned long) argument;
    iter->state->rsp = tempSP;
    iter->state->rbp = tempBP;
    
@@ -153,15 +152,17 @@ void lwp_stop(void) {
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-	for(thread t = fun.next; t; t = RoundRobin->next()) {
-		sched.remove(t);
-		fun.admit(t);
-	}
+   thread t = fun.next;
+   
+   for ( ; t; t = RoundRobin->next()) {
+      sched.remove(t);
+      fun.admit(t);
+   }
 	
-	if(sched.shutdown != NULL)
-		sched.shutdown();
+   if (sched.shutdown != NULL)
+      sched.shutdown();
 	
-	sched = *(fun);
+   sched = *(fun);
 }
 
 /* find out what the current scheduler is */
@@ -171,19 +172,18 @@ scheduler lwp_get_scheduler(void) {
 
 /* map a thread id to a context */
 thread tid2thread(tid_t tid) {
-	int i;
-	context temp;
-
-	context ctx = sched->next()
-	if (ctx) {
-		for (temp = ctx->head, i = 1; temp && (tid_t) i != tid; temp = temp->next, i++)
-			;
-		if ((tid_t) i == tid)
-			return temp;
-	}
+   int i = 1;
+   context iter;
+   context ctx = sched->next()
 	
-	return NULL;	
- 
+   if(ctx) {
+      for (iter = head; iter && i != tid; iter = iter->next, i++)
+         ;
+      if (i == tid)
+         return iter;
+   }
+	
+   return NULL; 
 }
 
 
