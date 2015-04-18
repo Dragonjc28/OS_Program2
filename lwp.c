@@ -11,7 +11,7 @@
 #define next lib_two
 
 /* GLOBALS */
-static scheduler sched = {NULL, NULL, rr_admit, rr_remove, NULL};
+static scheduler sched = {NULL, NULL, rr_admit, rr_remove, rr_next};
 static rfile returnContext; /* pointer to original return context */
 static context runningThread; /* global for the currently running thread */
 static tid_t tidCount = 1;
