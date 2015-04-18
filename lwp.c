@@ -185,20 +185,61 @@ thread tid2thread(tid_t tid) {
 	return NULL;	
  
 }
+/* 
+ * void init(void)
+ * This is to be called before any threads are admitted to the scheduler. 
+ * It’s to al
+ * low
+ * the scheduler to set up. This one is allowed, to be NULL, so don’t call it if it is.
+ * void shutdown(void)
+ * This is to be called when the lwp library is done with a scheduler to allow
+ * it to clean up. This, too, is allowed, to be NULL, so don’t call it if it is.
+ * void admit(thread new)
+ * Add the passed context to the scheduler’s scheduling pool.
+ * void remove(thread victim)
+ * Remove the passed context from the scheduler’s scheduling pool.
+ * thread next()
+ * Return the thread ID of the next thread to be run or
+ * NO
+ * THREAD
+ * if there isn’t one.
+*/
 
 
 void rr_init() {
-
+	return;
 }
 
 void rr_shutdown() {
-
+	return;
 }
 
 void rr_admit(thread new) {
-
+	return;
 }
 
 void rr_remove(thread victim) {
-
+	return;
 }
+
+/* find the  next thread that should run 
+ * go through the linked list, starting at the currently 
+ * running process's next. if the currently running process's
+ * next is null, start at the head of the list.
+ * */
+context rr_next() {
+	context iter = runningThread->next?runningThread->next:head;
+
+	/* this is basically a check to see if there is only 1 entry 
+ 	* in the linked list*/
+	if (runningThread == head && runningThread->next == NULL) {
+		return runningThread;
+	}	
+
+	for (; iter != runningThread; iter = iter->next?iter->next:head)
+		;
+
+	return iter;
+	
+}
+
