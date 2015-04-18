@@ -13,11 +13,10 @@
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, rr_next};
 static rfile returnContext; /* pointer to original return context */
-static context runningThread; /* global for the currently running thread */
-static tid_t tidCount = 1;
+static context runningThread = NULL; /* global for the currently running thread */
 static context head;
+static tid_t tidCount = 1;
 static void* returnSP; /* pointer to the return address */
-
 
 
 /* The job of lwp create() is to set up a thread’s context
@@ -128,26 +127,35 @@ void lwp_yield(void) {
 }
 
 /* start the LWP system
- * 1. save "real" where lwp can find it
- * 2. call scheduler, pick a lwp to run
+ * 1. save "real" context where lwp_stop() can find it
+ * 2. call scheduler, pick next lwp to run
  * 3. load the thread's context with swap_rfiles()
+ * 4. if no next lwp exists, restore original system context and return
  */
 void lwp_start(void) {
-	GetSP(returnSP);
-	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
-
-	thread *t = sched.next();
-	runningThread = t;
-	load_context(t->context); 
+   GetSP(returnSP);
+   
+   /* save the base pointer, instruction pointer, etc */
+   save_context(returnContext);
+   
+   /* picks the next thread in the schedule, loads it's context */
+   runningThread = sched.next();
+   
+   if (runningThread == NULL) {
+      load_context(returnContext);
+      return;
+   }
+   
+   load_context(runningThread->context);
 }
 
 /* stop the LWP system. 
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
-	SetSP(returnSP);
-	
- 	load_context(returnContext); /* load the registers from the return context global */
+   SetSP(returnSP);
+
+   load_context(returnContext); /* load the registers from the return context global */
 }
 
 /* install a new scheduling function */
