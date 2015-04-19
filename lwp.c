@@ -111,7 +111,14 @@ tid_t lwp_gettid(void) {
  * the stack
  */
 void lwp_yield(void) {
-	thread *t = sched.next();
+	save_context(runningThread->rfile);
+   GetSP(runningThread->rfile->rsp);
+   runningThread = sched.next();
+   SetSP(runningThread->rfile->rsp);
+   load_context(runningThread->rfile);
+   
+   /*
+   thread *t = sched.next();
 	rfile currentRegisters;
 
 	save_context(runningThread->state); 
@@ -123,7 +130,7 @@ void lwp_yield(void) {
 	}
 	else 	
 		lwp_stop();
-
+   */
 }
 
 /* start the LWP system
@@ -133,29 +140,29 @@ void lwp_yield(void) {
  * 4. if no next lwp exists, restore original system context and return
  */
 void lwp_start(void) {
-   GetSP(returnSP);
+   /* exit if no threads to start */
+   if (tidCount - 1 == 0)
+      return;
    
    /* save the base pointer, instruction pointer, etc */
    save_context(returnContext);
+   GetSP(returnSP);
    
    /* picks the next thread in the schedule, loads it's context */
    runningThread = sched.next();
-   
-   if (runningThread == NULL) {
-      load_context(returnContext);
-      return;
-   }
-   
-   load_context(runningThread->context);
+   SetSP(runningThread->rfile->rsp);
+   load_context(runningThread->rfile);
 }
 
 /* stop the LWP system. 
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
+   save_context(runningThread->rfile);
+   GetSP(runningThread->rfile->rsp);
    SetSP(returnSP);
-
-   load_context(returnContext); /* load the registers from the return context global */
+   /* load the registers from the return context global */
+   load_context(returnContext);
 }
 
 /* install a new scheduling function */
@@ -170,7 +177,7 @@ void lwp_set_scheduler(scheduler fun) {
    if (sched.shutdown != NULL)
       sched.shutdown();
 
-   sched = *fun;
+   sched = fun;
 }
 
 /* find out what the current scheduler is */
