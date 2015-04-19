@@ -9,6 +9,9 @@
 
 #define prev lib_one
 #define next lib_two
+#define sprev sched_one
+#define snext sched_two 
+
 
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, rr_next};
@@ -16,6 +19,7 @@ static rfile returnContext; /* pointer to original return context */
 static context runningThread; /* global for the currently running thread */
 static tid_t tidCount = 1;
 static context head;
+static thread shead = NULL;
 static void* returnSP; /* pointer to the return address */
 
 
@@ -214,10 +218,45 @@ void rr_shutdown() {
 }
 
 void rr_admit(thread new) {
+ 
+	for (iter = head; iter->next; iter = iter->next)
+         ;
+      
+      
+/* set prev to prior last item in list, 
+* go to new last item and set next to NULL
+*/
+	if (iter->snext) {
+		iter->snext->snext = new;
+		new->sprev = iter->snext;
+	}
+	else {
+		iter->snext = new;
+		new->snext = NULL;
+		new->sprev = iter;
+	}
+
+
 	return;
 }
 
 void rr_remove(thread victim) {
+	/* sever the connection to iter->snext */
+	
+	if (victim == shead) {
+		if (victim->snext) {
+			victim->next->sprev = NULL;
+			shead = victim->snext;
+		}
+		else {
+			shead = NULL;
+		}
+	
+
+	}
+	victim->snext = NULL;
+	victim->sprev = NULL;
+
 	return;
 }
 
@@ -231,11 +270,11 @@ context rr_next() {
 
 	/* this is basically a check to see if there is only 1 entry 
  	* in the linked list*/
-	if (runningThread == head && runningThread->next == NULL) {
+	if (runningThread == shead && runningThread->snext == NULL) {
 		return runningThread;
 	}	
 
-	for (; iter != runningThread; iter = iter->next?iter->next:head)
+	for (; iter != runningThread; iter = iter->snext?iter->snext:shead)
 		;
 
 	return iter;
