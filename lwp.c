@@ -16,12 +16,11 @@
 /* GLOBALS */
 static scheduler sched = {NULL, NULL, rr_admit, rr_remove, rr_next};
 static rfile returnContext; /* pointer to original return context */
-static context runningThread; /* global for the currently running thread */
-static tid_t tidCount = 1;
+static context runningThread = NULL; /* global for the currently running thread */
 static context head;
 static thread shead = NULL;
+static tid_t tidCount = 1;
 static void* returnSP; /* pointer to the return address */
-
 
 
 /* The job of lwp create() is to set up a thread’s context
@@ -132,41 +131,50 @@ void lwp_yield(void) {
 }
 
 /* start the LWP system
- * 1. save "real" where lwp can find it
- * 2. call scheduler, pick a lwp to run
+ * 1. save "real" context where lwp_stop() can find it
+ * 2. call scheduler, pick next lwp to run
  * 3. load the thread's context with swap_rfiles()
+ * 4. if no next lwp exists, restore original system context and return
  */
 void lwp_start(void) {
-	GetSP(returnSP);
-	save_context(returnContext); /* save the base pointer, instruction pointer, etc */
-
-	thread *t = sched.next();
-	runningThread = t;
-	load_context(t->context); 
+   GetSP(returnSP);
+   
+   /* save the base pointer, instruction pointer, etc */
+   save_context(returnContext);
+   
+   /* picks the next thread in the schedule, loads it's context */
+   runningThread = sched.next();
+   
+   if (runningThread == NULL) {
+      load_context(returnContext);
+      return;
+   }
+   
+   load_context(runningThread->context);
 }
 
 /* stop the LWP system. 
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
-	SetSP(returnSP);
-	
- 	load_context(returnContext); /* load the registers from the return context global */
+   SetSP(returnSP);
+
+   load_context(returnContext); /* load the registers from the return context global */
 }
 
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
-   thread t = fun.next();
-   
-   for ( ; t; t = RoundRobin->next()) {
+   thread t = head;
+
+   for ( ; t; t = t->next()) {
       sched.remove(t);
       fun.admit(t);
    }
-	
+
    if (sched.shutdown != NULL)
       sched.shutdown();
-	
-   sched = *(fun);
+
+   sched = *fun;
 }
 
 /* find out what the current scheduler is */
@@ -178,16 +186,17 @@ scheduler lwp_get_scheduler(void) {
 thread tid2thread(tid_t tid) {
    context iter;
    context ctx = sched->next()
-	
+
    if (ctx) {
       for (iter = head; iter && iter->tid != tid; iter = iter->next)
          ;
       if (iter->tid == tid)
          return iter;
    }
-	
+
    return NULL; 
 }
+
 /* 
  * void init(void)
  * This is to be called before any threads are admitted to the scheduler. 
@@ -208,13 +217,12 @@ thread tid2thread(tid_t tid) {
  * if there isn’t one.
 */
 
-
 void rr_init() {
-	return;
+   return;
 }
 
 void rr_shutdown() {
-	return;
+   return;
 }
 
 void rr_admit(thread new) {
@@ -260,13 +268,14 @@ void rr_remove(thread victim) {
 	return;
 }
 
+
 /* find the  next thread that should run 
  * go through the linked list, starting at the currently 
  * running process's next. if the currently running process's
  * next is null, start at the head of the list.
  * */
 context rr_next() {
-	context iter = runningThread->next?runningThread->next:head;
+   context iter = runningThread->next?runningThread->next:head;
 
 	/* this is basically a check to see if there is only 1 entry 
  	* in the linked list*/
@@ -276,8 +285,15 @@ context rr_next() {
 
 	for (; iter != runningThread; iter = iter->snext?iter->snext:shead)
 		;
+   /* this is basically a check to see if there is only 1 entry 
+    * in the linked list
+    */
+   if (runningThread == head && runningThread->next == NULL) {
+      return runningThread;
+   }	
 
-	return iter;
-	
+   for (; iter != runningThread; iter = iter->next?iter->next:head)
+      ;
+
+   return iter;
 }
-
