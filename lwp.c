@@ -43,7 +43,6 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    if (tidCount == 1) {
       iter->tprev = NULL; 
       iter->tnext = NULL;
-	   head = iter; 
    }
    else {
       for ( ; iter->tnext; iter = iter->tnext)
