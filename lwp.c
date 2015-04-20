@@ -100,13 +100,8 @@ void lwp_exit(void) {
    iter->tnext = NULL;
    
    sched->remove(iter);
-   
    SetSP(currentSP);
-   
-   
    free(iter->stack);
-   free(iter);
-   
    thread runningThread = sched->next();
    
    if (!runningThread) {
