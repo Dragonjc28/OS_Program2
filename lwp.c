@@ -103,7 +103,7 @@ tid_t lwp_gettid(void) {
    thread temp = sched->next();
    int i = 1;	
 
-   for (; temp && temp != runningThread; i++, temp = temp->tnext)
+   for ( ; temp && temp != runningThread; i++, temp = temp->tnext)
       ;
 
    if (temp != NULL)
@@ -120,7 +120,7 @@ tid_t lwp_gettid(void) {
  */
 void lwp_yield(void) {
 	/* save previous context and stack pointer */
-	save_context(&(runningThread->state));
+   save_context(&(runningThread->state));
    GetSP(runningThread->state.rsp);
    
    /* picks the next thread in the schedule
@@ -128,7 +128,7 @@ void lwp_yield(void) {
     */
    runningThread = sched->next();
    
-   if(runningThread == NULL) {
+   if (runningThread == NULL) {
       SetSP(returnSP);
       load_context(&returnContext);
    }
@@ -158,7 +158,7 @@ void lwp_start(void) {
     */
    runningThread = sched->next();
    
-   if(runningThread == NULL) {
+   if (runningThread == NULL) {
       SetSP(returnSP);
       load_context(&returnContext);
    }
@@ -206,9 +206,9 @@ thread tid2thread(tid_t tid) {
    thread iter;
 
    for (iter = head; iter && iter->tid != tid; iter = iter->tnext)
-       ;
+      ;
    if (iter->tid == tid)
-       return iter;
+      return iter;
 
    return NO_THREAD; 
 }
