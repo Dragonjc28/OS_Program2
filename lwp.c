@@ -15,6 +15,7 @@
 context* rr_next();
 void rr_remove(thread victim);
 void rr_admit(thread new);
+void printSchedSize();
 
 /* GLOBALS */
 static struct scheduler sched_global = {NULL, NULL, rr_admit, rr_remove, rr_next};
@@ -36,21 +37,23 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempSP;
    unsigned long *tempBP;
    context *iter = head;
-   
+	  
+ 
    /* assign null value to thread pointers if only one thread created, 
     * else set up doubly linked list of threads.
     */
    if (tidCount == 1) {
-      iter->tprev = NULL; 
+      
+      iter = malloc(sizeof (context));
+	  iter->tprev = NULL; 
       iter->tnext = NULL;
-	   head = iter; 
+	  head = iter;
    }
    else {
-      for ( ; iter->tnext; iter = iter->tnext)
+	  for ( ; iter->tnext; iter = iter->tnext)
          ;
       iter->tnext = malloc(sizeof (context));
-      
-      /* return error value if malloc fails */
+	  /* return error value if malloc fails */
       if (iter->tnext == NULL)
          return (tid_t) -1;
       
@@ -68,7 +71,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->stacksize = stacksize;
   
    /* return error value if stack malloc fails */
-   if (iter->tnext == NULL)
+   if (iter->stack == NULL)
       return (tid_t)-1;
    
    /* assign function parameters to stack, including return address */
@@ -83,33 +86,75 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->state.rsp = (unsigned long) tempSP;
    iter->state.rbp = (unsigned long) tempBP;
    
+   printSchedSize();
    sched->admit(iter);
-
    return iter->tid;
 }
 
+void printSchedSize() {
+	thread temp;
+	int i = 0;
+
+	for (temp = shead; temp; temp=temp->snext, i++)
+		;
+
+	printf("Threads in scheduler:%d\n", i); 
+
+
+}
+
+void removeFromLL(thread victim) {
+   
+   /* special case if we're at the head */	
+   if (victim == head) {
+      if (victim->tnext) {
+         victim->tnext->tprev = NULL;
+         head = victim->tnext;
+      }
+
+      else {
+         head = NULL;
+      }
+
+   }
+
+   if (victim->tprev) {
+      victim->tprev->tnext = victim->tnext;
+   }
+   if (victim->tnext) {
+      victim->tnext->tprev = victim->tprev;
+
+   }
+   victim->tnext = NULL;
+   victim->tprev = NULL;
+
+   return;
+}
+
+
 /* terminates the calling LWP */
 void lwp_exit(void) {
-   context *iter = head;
-   
-   while (iter != runningThread)
-      iter = iter->tnext;
-      
-   iter->tprev->tnext = iter->tnext;
-   iter->tprev = NULL;
-   iter->tnext = NULL;
-   
-   sched->remove(iter);
+   thread next = sched->next();	
+
+   removeFromLL(runningThread);
+   sched->remove(runningThread);
    SetSP(returnSP);
-   free(iter->stack);
-   thread runningThread = sched->next();
-   
-   if (!runningThread) {
+   free(runningThread->stack);
+   free(runningThread);
+
+   if (!next) {
+	  printf("stopping\n");
       lwp_stop();
    }
    else {
+
+	  runningThread = next;
       SetSP(runningThread->state.rsp);
+
+   	  printf("got here\n");
+	  printf("register:%d\n", runningThread->state.rbp); 
       load_context(&(runningThread->state));
+	  printf("load context done\n");
    }
 }
 
@@ -163,12 +208,10 @@ void lwp_start(void) {
    /* save previous context and stack pointer */
    save_context(&returnContext);
    GetSP(returnSP);
-   
    /* picks the next thread in the schedule
     * loads new context if next thread exists, else restore previous contest
     */
    runningThread = sched->next();
-   
    if (runningThread == NULL) {
       SetSP(returnSP);
       load_context(&returnContext);
@@ -261,7 +304,6 @@ void rr_admit(thread new) {
       new->sprev = NULL;
       return;
    }
- 	
    /* go to the last item of the list */
    for (iter = head; iter->snext; iter = iter->snext)
       ;
@@ -318,16 +360,29 @@ void rr_remove(thread victim) {
  * next is null, start at the head of the list.
  * */
 thread rr_next() {
+  
+   /* If nothing is running and there's threads in the pool, 
+ 	  return the head. If nothing is running and there's no
+	  threads left in the pool, return NULL */
+   if (runningThread == NULL) {
+   	  if (shead != NULL) {
+	  	return shead;
+	  }
+   	  else {
+	  	return NULL;
+   	  }
+   }
+
    thread iter = runningThread->snext?runningThread->snext:shead;
 
    /* this is basically a check to see if there is only 1 entry 
  	* in the linked list*/
    if (runningThread == shead && runningThread->snext == NULL) {
       return runningThread;
-   }	
-
-   for (; iter != runningThread; iter = iter->snext?iter->snext:head)
-      ;
-
+   }
+  
+   printf("runningThreadTid:%d\n", lwp_gettid());  
+   for (; iter != runningThread; iter = iter->snext?iter->snext:shead)
+		printf("tid:%d\n", iter->tid);
    return iter;
 }
