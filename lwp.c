@@ -117,10 +117,10 @@ void lwp_exit(void) {
  *
  */
 tid_t lwp_gettid(void) {
-	if (runningThread != NULL)
-		return runningThread->tid;
-	else
-		return NO_THREAD;
+   if (runningThread != NULL)
+      return runningThread->tid;
+   else
+      return NO_THREAD;
 }
 
 /* yield the CPU to another LWP 
@@ -253,62 +253,62 @@ void rr_shutdown() {
 }
 
 void rr_admit(thread new) {
-	thread iter;
+   thread iter;
 	
-	if (shead == NULL) {
-		shead = new;
-		new->snext = NULL;
-		new->sprev = NULL;
-		return;
-	}
+   if (shead == NULL) {
+      shead = new;
+      new->snext = NULL;
+      new->sprev = NULL;
+      return;
+   }
  	
-	/* go to the last item of the list */
-	for (iter = head; iter->snext; iter = iter->snext)
-         ;
-      
-	      
-/* set prev to prior last item in list, 
- * go to new last item and set next to NULL
- */
-	if (iter->snext) {
-		iter->snext->snext = new;
-		new->sprev = iter->snext;
-	}
-	else {
-		iter->snext = new;
-		new->snext = NULL;
-		new->sprev = iter;
-	}
+   /* go to the last item of the list */
+   for (iter = head; iter->snext; iter = iter->snext)
+      ;
 
-	return;
+      
+   /* set prev to prior last item in list, 
+    * go to new last item and set next to NULL
+    */
+   if (iter->snext) {
+      iter->snext->snext = new;
+      new->sprev = iter->snext;
+   }
+   else {
+      iter->snext = new;
+      new->snext = NULL;
+      new->sprev = iter;
+   }
+
+   return;
 }
 
 void rr_remove(thread victim) {
 
-	/* special case if we're at the head */	
-	if (victim == shead) {
-		if (victim->snext) {
-			victim->snext->sprev = NULL;
-			shead = victim->snext;
-		}
-	
-		else {
-			shead = NULL;
-		}
-	
-	}
-	
-	if (victim->sprev) {
-		victim->sprev->snext = victim->snext;
-	}
-	if (victim->snext) {
-		victim->snext->sprev = victim->sprev;
+   /* special case if we're at the head */	
+   if (victim == shead) {
+      if (victim->snext) {
+         victim->snext->sprev = NULL;
+         shead = victim->snext;
+      }
 
-	}
-	victim->snext = NULL;
-	victim->sprev = NULL;
+      else {
+         shead = NULL;
+      }
 
-	return;
+   }
+
+   if (victim->sprev) {
+      victim->sprev->snext = victim->snext;
+   }
+   if (victim->snext) {
+      victim->snext->sprev = victim->sprev;
+
+   }
+   victim->snext = NULL;
+   victim->sprev = NULL;
+
+   return;
 }
 
 
@@ -320,11 +320,11 @@ void rr_remove(thread victim) {
 thread rr_next() {
    thread iter = runningThread->snext?runningThread->snext:shead;
 
-	/* this is basically a check to see if there is only 1 entry 
+   /* this is basically a check to see if there is only 1 entry 
  	* in the linked list*/
-	if (runningThread == shead && runningThread->snext == NULL) {
-		return runningThread;
-	}	
+   if (runningThread == shead && runningThread->snext == NULL) {
+      return runningThread;
+   }	
 
    for (; iter != runningThread; iter = iter->snext?iter->snext:head)
       ;
