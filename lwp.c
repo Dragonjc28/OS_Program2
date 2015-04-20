@@ -88,17 +88,39 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
 
 /* terminates the calling LWP */
 void lwp_exit(void) {
-	context *ctx = sched->next();
-	
-	if (!ctx) {
-		lwp_stop();
-	}
-	
+   context *iter = head;
+   
+   while (iter != runningThread)
+      iter = iter->tnext;
+      
+   iter->tprev->tnext = iter->tnext;
+   iter->tprev = NULL;
+   iter->tnext = NULL;
+   
+   sched->remove(iter);
+   
+   
+   
+   SetSP(currentSP);
+   
+   
+   free(iter->stack);
+   free(iter);
+   
+   thread runningThread = sched->next();
+   
+   if (!runningThread) {
+      lwp_stop();
+   }
+   else {
+      SetSP(runningThread->state.rsp);
+      load_context(&(runningThread->state));
+   }
 }
 
 /* return thread ID of the calling LWP 
  *
- * */
+ */
 tid_t lwp_gettid(void) {
    thread temp = sched->next();
    int i = 1;	
@@ -257,8 +279,8 @@ void rr_admit(thread new) {
       
 	      
 /* set prev to prior last item in list, 
-* go to new last item and set next to NULL
-*/
+ * go to new last item and set next to NULL
+ */
 	if (iter->snext) {
 		iter->snext->snext = new;
 		new->sprev = iter->snext;
