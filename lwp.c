@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include "lwp.h"
 
-#define STACK_SIZE 8192
 #define tprev lib_one
 #define tnext lib_two
 #define sprev sched_one
@@ -65,8 +64,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    /* assign tid, stack, and stack size to thread */
    iter->tid = tidCount++;
-   /* iter->stack = malloc(stacksize * sizeof (unsigned long)); */
-   iter->stack->stack = malloc(STACK_SIZE);
+   iter->stack = malloc(stacksize * sizeof (unsigned long));
    iter->stacksize = stacksize;
   
    /* return error value if stack malloc fails */
