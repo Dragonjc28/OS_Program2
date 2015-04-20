@@ -119,30 +119,23 @@ tid_t lwp_gettid(void) {
  * the stack
  */
 void lwp_yield(void) {
-<<<<<<< HEAD
-	save_context(runningThread->rfile);
-   GetSP(runningThread->rfile->rsp);
-   runningThread = sched.next();
-   SetSP(runningThread->rfile->rsp);
-   load_context(runningThread->rfile);
+	/* save previous context and stack pointer */
+	save_context(&(runningThread->state));
+   GetSP(runningThread->state.rsp);
    
-   /*
-   thread *t = sched.next();
-=======
-	thread t = sched->next();
->>>>>>> ebb85e83e5deda0de56b8a35bd2e024483628252
-	rfile currentRegisters;
-
-	save_context(&(runningThread->state)); 
-
-	if (t != NULL) {
-		runningThread = t;
-		SetSP(t->stack);	
-		load_context(&(t->state));
-	}
-	else 	
-		lwp_stop();
-   */
+   /* picks the next thread in the schedule
+    * loads new context if next thread exists, else restore previous contest
+    */
+   runningThread = sched->next();
+   
+   if(runningThread == NULL) {
+      SetSP(returnSP);
+      load_context(&returnContext);
+   }
+   else {
+      SetSP(runningThread->state.rsp);
+      load_context(&(runningThread->state));
+   }
 }
 
 /* start the LWP system
@@ -156,44 +149,36 @@ void lwp_start(void) {
    if (tidCount - 1 == 0)
       return;
    
-   /* save the base pointer, instruction pointer, etc */
-<<<<<<< HEAD
-   save_context(returnContext);
+   /* save previous context and stack pointer */
+   save_context(&returnContext);
    GetSP(returnSP);
    
-   /* picks the next thread in the schedule, loads it's context */
-   runningThread = sched.next();
-   SetSP(runningThread->rfile->rsp);
-   load_context(runningThread->rfile);
-=======
-   save_context(&(returnContext));
-   
-   /* picks the next thread in the schedule, loads it's context */
+   /* picks the next thread in the schedule
+    * loads new context if next thread exists, else restore previous contest
+    */
    runningThread = sched->next();
    
-   if (runningThread == NULL) {
-      load_context(&(returnContext));
-      return;
+   if(runningThread == NULL) {
+      SetSP(returnSP);
+      load_context(&returnContext);
    }
-   
-   load_context(&(runningThread->state));
->>>>>>> ebb85e83e5deda0de56b8a35bd2e024483628252
+   else {
+      SetSP(runningThread->state.rsp);
+      load_context(&(runningThread->state));
+   }
 }
 
 /* stop the LWP system. 
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
-   save_context(runningThread->rfile);
-   GetSP(runningThread->rfile->rsp);
+   /* stores current context and stack pointer before stopping */
+   save_context(&(runningThread->state));
+   GetSP(runningThread->state.rsp);
+   
+   /* loads globally stored context and stack pointer */
    SetSP(returnSP);
-<<<<<<< HEAD
-   /* load the registers from the return context global */
-   load_context(returnContext);
-=======
-
-   load_context(&(returnContext)); /* load the registers from the return context global */
->>>>>>> ebb85e83e5deda0de56b8a35bd2e024483628252
+   load_context(&returnContext);
 }
 
 /* install a new scheduling function */
