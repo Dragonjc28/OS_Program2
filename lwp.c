@@ -99,8 +99,6 @@ void lwp_exit(void) {
    
    sched->remove(iter);
    
-   
-   
    SetSP(currentSP);
    
    
@@ -122,16 +120,10 @@ void lwp_exit(void) {
  *
  */
 tid_t lwp_gettid(void) {
-   thread temp = sched->next();
-   int i = 1;	
-
-   for ( ; temp && temp != runningThread; i++, temp = temp->tnext)
-      ;
-
-   if (temp != NULL)
-      return (tid_t) i;
-   else
-      return -1; /* error, couldn't find thread in linked list */
+	if (runningThread != NULL)
+		return runningThread->tid;
+	else
+		return NO_THREAD;
 }
 
 /* yield the CPU to another LWP 
@@ -232,7 +224,7 @@ thread tid2thread(tid_t tid) {
    if (iter->tid == tid)
       return iter;
 
-   return NO_THREAD; 
+   return NULL; 
 }
 
 /* 
