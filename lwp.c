@@ -86,7 +86,6 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->state.rsp = (unsigned long) tempSP;
    iter->state.rbp = (unsigned long) tempBP;
    
-   printSchedSize();
    sched->admit(iter);
    return iter->tid;
 }
@@ -137,8 +136,6 @@ void lwp_exit(void) {
    thread next = sched->next();	
    thread oldRunningThread = runningThread;
 
-   if (next == oldRunningThread)
-   		printf("thread error\n");
 
    removeFromLL(runningThread);
    sched->remove(runningThread);
@@ -147,7 +144,7 @@ void lwp_exit(void) {
    free(runningThread);
 
    if (!next || next == oldRunningThread) {
-	  printf("stopping\n");
+	  //printf("stopping\n");
       lwp_stop();
    }
    else {
@@ -178,7 +175,7 @@ tid_t lwp_gettid(void) {
 void lwp_yield(void) {
 	/* save previous context and stack pointer */
    save_context(&(runningThread->state));
-   GetSP(runningThread->state.rsp);
+   //GetSP(runningThread->state.rsp);
    
    /* picks the next thread in the schedule
     * loads new context if next thread exists, else restore previous contest
@@ -190,7 +187,7 @@ void lwp_yield(void) {
       load_context(&returnContext);
    }
    else {
-      SetSP(runningThread->state.rsp);
+      //SetSP(runningThread->state.rsp);
       load_context(&(runningThread->state));
    }
 }
@@ -203,7 +200,6 @@ void lwp_yield(void) {
  */
 void lwp_start(void) {
    /* exit if no threads to start */
-   printf("start method\n");
    if (tidCount - 1 == 0)
       return;
    
@@ -241,7 +237,7 @@ void lwp_stop(void) {
    if (oldStackPointer == returnSP)
 		printf("old stack is same as return stack\n");
 
-   SetSP(returnSP);
+   //SetSP(returnSP);
    load_context(&returnContext);
 
    printf("Stop Done\n");   
@@ -393,9 +389,7 @@ thread rr_next() {
       return runningThread;
    }
   
-   printf("runningThreadTid:%d\n", lwp_gettid());  
    for (; iter != runningThread; iter = iter->snext?iter->snext:shead) {
-		printf("tid:%d\n", iter->tid);
 		prior = iter;
    }
    return prior;
