@@ -135,6 +135,10 @@ void removeFromLL(thread victim) {
 /* terminates the calling LWP */
 void lwp_exit(void) {
    thread next = sched->next();	
+   thread oldRunningThread = runningThread;
+
+   if (next == oldRunningThread)
+   		printf("thread error\n");
 
    removeFromLL(runningThread);
    sched->remove(runningThread);
@@ -142,7 +146,7 @@ void lwp_exit(void) {
    free(runningThread->stack);
    free(runningThread);
 
-   if (!next) {
+   if (!next || next == oldRunningThread) {
 	  printf("stopping\n");
       lwp_stop();
    }
@@ -151,10 +155,7 @@ void lwp_exit(void) {
 	  runningThread = next;
       SetSP(runningThread->state.rsp);
 
-   	  printf("got here\n");
-	  printf("register:%d\n", runningThread->state.rbp); 
       load_context(&(runningThread->state));
-	  printf("load context done\n");
    }
 }
 
@@ -202,6 +203,7 @@ void lwp_yield(void) {
  */
 void lwp_start(void) {
    /* exit if no threads to start */
+   printf("start method\n");
    if (tidCount - 1 == 0)
       return;
    
@@ -226,13 +228,23 @@ void lwp_start(void) {
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
+   void *oldStackPointer;
+
    /* stores current context and stack pointer before stopping */
-   save_context(&(runningThread->state));
-   GetSP(runningThread->state.rsp);
-   
+   if (runningThread) {
+   		save_context(&(runningThread->state));
+   		GetSP(runningThread->state.rsp);
+   }
+
    /* loads globally stored context and stack pointer */
+   GetSP(oldStackPointer);
+   if (oldStackPointer == returnSP)
+		printf("old stack is same as return stack\n");
+
    SetSP(returnSP);
    load_context(&returnContext);
+
+   printf("Stop Done\n");   
 }
 
 /* install a new scheduling function */
@@ -360,7 +372,7 @@ void rr_remove(thread victim) {
  * next is null, start at the head of the list.
  * */
 thread rr_next() {
-  
+   thread prior = NULL; 
    /* If nothing is running and there's threads in the pool, 
  	  return the head. If nothing is running and there's no
 	  threads left in the pool, return NULL */
@@ -382,7 +394,9 @@ thread rr_next() {
    }
   
    printf("runningThreadTid:%d\n", lwp_gettid());  
-   for (; iter != runningThread; iter = iter->snext?iter->snext:shead)
+   for (; iter != runningThread; iter = iter->snext?iter->snext:shead) {
 		printf("tid:%d\n", iter->tid);
-   return iter;
+		prior = iter;
+   }
+   return prior;
 }
