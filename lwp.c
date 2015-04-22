@@ -18,11 +18,12 @@ void rr_admit(thread new);
 void printSchedSize();
 
 /* GLOBALS */
-static struct scheduler sched_global = {NULL, NULL, rr_admit, rr_remove, rr_next};
+static struct scheduler sched_global = {NULL, NULL, rr_admit, 
+ rr_remove, rr_next};
 static scheduler sched = &sched_global;
 static rfile returnContext; /* pointer to original return context */
 static void* returnSP; /* pointer to the return address */
-static context* runningThread = NULL; /* global for the currently running thread */
+static context* runningThread = NULL; /* currently running thread */
 static context* head = NULL;
 static thread shead = NULL;
 static tid_t tidCount = 1;
@@ -36,7 +37,7 @@ static tid_t tidCount = 1;
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempSP;
    unsigned long *tempBP;
-   context *iter = head;
+   thread iter = head;
 	  
  
    /* assign null value to thread pointers if only one thread created, 
@@ -81,7 +82,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    *(--tempSP) = (unsigned long) lwp_exit;
    *(--tempSP) = (unsigned long) function;
    tempBP = --tempSP;
-   *(--tempSP) = (unsigned long) tempBP;
+//   *(--tempSP) = (unsigned long) tempBP;
    
    iter->state.rdi = (unsigned long) argument;
    iter->state.rsp = (unsigned long) tempSP;
@@ -134,33 +135,34 @@ void removeFromLL(thread victim) {
 
 /* terminates the calling LWP */
 void lwp_exit(void) {
-   thread next = sched->next();	
    thread oldRunningThread = runningThread;
-   /*unsigned long *safeStack = returnContext + (sizeof(unsigned long) * 4);
-   unsigned long *safeBP;
-   rFile safeRegisters;   
+   unsigned long *safeStack = returnSP - (sizeof(unsigned long) * 4);
+   unsigned long *safeBP, *tempBP;
+   rfile safeRegisters;   
 
-   //*(--tempSP) = (unsigned long)argument;
+   save_context(&safeRegisters);
+
    *(--safeStack) = (unsigned long) lwp_exit;
-   tempBP = --safeStack;
-   
-   iter->state.rdi = (unsigned long) argument;
-   iter->state.rsp = (unsigned long) tempSP;
-   iter->state.rbp = (unsigned long) tempBP;
-*/
+   *(++safeStack) = (unsigned long) safeRegisters.rsp;
+   tempBP = ++safeStack;
+//   *(--safeStack) = (unsigned long) tempBP;
+   safeRegisters.rsp = (unsigned long) safeStack;
+   safeRegisters.rbp = (unsigned long) tempBP;
    //printf("%p\n", returnSP);
    removeFromLL(runningThread);
    sched->remove(runningThread);
-   SetSP(returnSP);
-//   free(runningThread->stack);
+
+   thread next = sched->next();	
+   SetSP(safeStack);
+//   load_context(&safeRegisters);
+   
+   free(runningThread->stack);
 //   free(runningThread);
 
-   if (!next || next == oldRunningThread) {
-	  //printf("stopping\n");
+   if (!next) {
       lwp_stop();
    }
    else {
-
 	  runningThread = next;
 
       load_context(&(runningThread->state));
@@ -189,7 +191,8 @@ void lwp_yield(void) {
    //GetSP(runningThread->state.rsp);
    
    /* picks the next thread in the schedule
-    * loads new context if next thread exists, else restore previous contest
+    * loads new context if next thread exists, 
+    * else restore previous contest
     */
    runningThread = sched->next();
    
@@ -233,8 +236,8 @@ void lwp_start(void) {
  * RESTORE the initial system context by returning to the global
  */
 void lwp_stop(void) {
-   void *oldStackPointer;
 
+   //printf("Stop\n");
    /* stores current context and stack pointer before stopping */
    if (runningThread) {
    		save_context(&(runningThread->state));
@@ -242,8 +245,6 @@ void lwp_stop(void) {
    }
 
    /* loads globally stored context and stack pointer */
-
-   GetSP(oldStackPointer);
    load_context(&returnContext);
 }
 
@@ -279,25 +280,6 @@ thread tid2thread(tid_t tid) {
    return NULL; 
 }
 
-/* 
- * void init(void)
- * This is to be called before any threads are admitted to the scheduler. 
- * It’s to al
- * low
- * the scheduler to set up. This one is allowed, to be NULL, so don’t call it if it is.
- * void shutdown(void)
- * This is to be called when the lwp library is done with a scheduler to allow
- * it to clean up. This, too, is allowed, to be NULL, so don’t call it if it is.
- * void admit(thread new)
- * Add the passed context to the scheduler’s scheduling pool.
- * void remove(thread victim)
- * Remove the passed context from the scheduler’s scheduling pool.
- * thread next()
- * Return the thread ID of the next thread to be run or
- * NO
- * THREAD
- * if there isn’t one.
-*/
 
 void rr_init() {
    return;
@@ -386,7 +368,8 @@ thread rr_next() {
       return runningThread;
    }
   
-   for (prior = iter; iter == runningThread; iter = iter->snext?iter->snext:shead) {
+   for (prior = iter; iter == runningThread; 
+    iter = iter->snext?iter->snext:shead) {
 		prior = iter;
    }
 
