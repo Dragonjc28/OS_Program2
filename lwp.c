@@ -67,6 +67,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    
    /* assign tid, stack, and stack size to thread */
    iter->tid = tidCount++;
+   
    iter->stack = malloc(stacksize * sizeof (unsigned long));
    iter->stacksize = stacksize;
   
@@ -135,13 +136,24 @@ void removeFromLL(thread victim) {
 void lwp_exit(void) {
    thread next = sched->next();	
    thread oldRunningThread = runningThread;
+   /*unsigned long *safeStack = returnContext + (sizeof(unsigned long) * 4);
+   unsigned long *safeBP;
+   rFile safeRegisters;   
 
-
+   //*(--tempSP) = (unsigned long)argument;
+   *(--safeStack) = (unsigned long) lwp_exit;
+   tempBP = --safeStack;
+   
+   iter->state.rdi = (unsigned long) argument;
+   iter->state.rsp = (unsigned long) tempSP;
+   iter->state.rbp = (unsigned long) tempBP;
+*/
+   //printf("%p\n", returnSP);
    removeFromLL(runningThread);
    sched->remove(runningThread);
    SetSP(returnSP);
-   free(runningThread->stack);
-   free(runningThread);
+//   free(runningThread->stack);
+//   free(runningThread);
 
    if (!next || next == oldRunningThread) {
 	  //printf("stopping\n");
@@ -150,7 +162,6 @@ void lwp_exit(void) {
    else {
 
 	  runningThread = next;
-      SetSP(runningThread->state.rsp);
 
       load_context(&(runningThread->state));
    }
@@ -183,7 +194,7 @@ void lwp_yield(void) {
    runningThread = sched->next();
    
    if (runningThread == NULL) {
-      SetSP(returnSP);
+      //SetSP(returnSP);
       load_context(&returnContext);
    }
    else {
@@ -205,17 +216,15 @@ void lwp_start(void) {
    
    /* save previous context and stack pointer */
    save_context(&returnContext);
-   GetSP(returnSP);
+   returnSP = (unsigned long *) returnContext.rsp;
    /* picks the next thread in the schedule
     * loads new context if next thread exists, else restore previous contest
     */
    runningThread = sched->next();
    if (runningThread == NULL) {
-      SetSP(returnSP);
       load_context(&returnContext);
    }
    else {
-      SetSP(runningThread->state.rsp);
       load_context(&(runningThread->state));
    }
 }
@@ -233,14 +242,9 @@ void lwp_stop(void) {
    }
 
    /* loads globally stored context and stack pointer */
+
    GetSP(oldStackPointer);
-   if (oldStackPointer == returnSP)
-		printf("old stack is same as return stack\n");
-
-   //SetSP(returnSP);
    load_context(&returnContext);
-
-   printf("Stop Done\n");   
 }
 
 /* install a new scheduling function */
@@ -320,17 +324,9 @@ void rr_admit(thread new) {
    /* set prev to prior last item in list, 
     * go to new last item and set next to NULL
     */
-   if (iter->snext) {
-      iter->snext->snext = new;
-      new->sprev = iter->snext;
-   }
-   else {
-      iter->snext = new;
-      new->snext = NULL;
-      new->sprev = iter;
-   }
-
-   return;
+   iter->snext = new;
+   new->snext = NULL;
+   new->sprev = iter;
 }
 
 void rr_remove(thread victim) {
@@ -351,6 +347,7 @@ void rr_remove(thread victim) {
    if (victim->sprev) {
       victim->sprev->snext = victim->snext;
    }
+
    if (victim->snext) {
       victim->snext->sprev = victim->sprev;
 
@@ -389,8 +386,9 @@ thread rr_next() {
       return runningThread;
    }
   
-   for (; iter != runningThread; iter = iter->snext?iter->snext:shead) {
+   for (prior = iter; iter == runningThread; iter = iter->snext?iter->snext:shead) {
 		prior = iter;
    }
+
    return prior;
 }
