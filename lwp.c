@@ -37,12 +37,15 @@ static tid_t tidCount = 1;
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempSP;
    unsigned long *tempBP;
+
    thread iter = head;
-	  
- 
    /* assign null value to thread pointers if only one thread created, 
     * else set up doubly linked list of threads.
     */
+	printf("CREATE\n");
+
+    fflush(stdout); 
+
    if (tidCount == 1) {
       
       iter = malloc(sizeof (context));
@@ -69,7 +72,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    /* assign tid, stack, and stack size to thread */
    iter->tid = tidCount++;
    
-   iter->stack = malloc(stacksize * sizeof (unsigned long));
+   iter->stack = malloc(stacksize  * sizeof (unsigned long));
    iter->stacksize = stacksize;
   
    /* return error value if stack malloc fails */
@@ -87,7 +90,9 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->state.rdi = (unsigned long) argument;
    iter->state.rsp = (unsigned long) tempSP;
    iter->state.rbp = (unsigned long) tempBP;
-   
+ 	printf("CREATING THREAD %d\n", iter->tid);
+    fflush(stdout); 
+  
    sched->admit(iter);
    return iter->tid;
 }
@@ -135,16 +140,16 @@ void removeFromLL(thread victim) {
 
 /* terminates the calling LWP */
 void lwp_exit(void) {
-   thread oldRunningThread = runningThread;
    unsigned long *safeStack = returnSP - (sizeof(unsigned long) * 4);
-   unsigned long *safeBP, *tempBP;
+   unsigned long  *tempBP;
+   unsigned long *stack;
    rfile safeRegisters;   
-
+   
    save_context(&safeRegisters);
 
    *(--safeStack) = (unsigned long) lwp_exit;
-   *(++safeStack) = (unsigned long) safeRegisters.rsp;
-   tempBP = ++safeStack;
+   *(--safeStack) = (unsigned long) safeRegisters.rsp;
+   tempBP = --safeStack;
 //   *(--safeStack) = (unsigned long) tempBP;
    safeRegisters.rsp = (unsigned long) safeStack;
    safeRegisters.rbp = (unsigned long) tempBP;
@@ -156,10 +161,14 @@ void lwp_exit(void) {
    SetSP(safeStack);
 //   load_context(&safeRegisters);
    
-   free(runningThread->stack);
 //   free(runningThread);
+   free(runningThread->stack);
+ 	printf("EXITING THREAD %d\n", runningThread->tid);
+    fflush(stdout); 
+
 
    if (!next) {
+	  runningThread = NULL;
       lwp_stop();
    }
    else {
@@ -167,6 +176,8 @@ void lwp_exit(void) {
 
       load_context(&(runningThread->state));
    }
+
+
 }
 
 /* return thread ID of the calling LWP 
@@ -216,7 +227,8 @@ void lwp_start(void) {
    /* exit if no threads to start */
    if (tidCount - 1 == 0)
       return;
-   
+   printf("STARTING\n");
+   fflush(stdout);   
    /* save previous context and stack pointer */
    save_context(&returnContext);
    returnSP = (unsigned long *) returnContext.rsp;
@@ -224,10 +236,20 @@ void lwp_start(void) {
     * loads new context if next thread exists, else restore previous contest
     */
    runningThread = sched->next();
+   printf("GOT HERE\n");
+   fflush(stdout);   
+
+
    if (runningThread == NULL) {
+   printf("GO BACK\n");
+   fflush(stdout);   
+
       load_context(&returnContext);
    }
    else {
+   printf("load context\n");
+   fflush(stdout);   
+
       load_context(&(runningThread->state));
    }
 }
@@ -251,10 +273,9 @@ void lwp_stop(void) {
 /* install a new scheduling function */
 void lwp_set_scheduler(scheduler fun) {
    thread t = shead;
-
-   for ( ; t; t = t->snext) {
+   for ( ; t; t = shead) {
       sched->remove(t);
-      fun->admit(t);
+	  fun->admit(t);
    }
 
    if (sched->shutdown != NULL)

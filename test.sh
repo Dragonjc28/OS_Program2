@@ -1,2 +1,2 @@
-gcc lwp.c magic64.s test7.c libncurses.so libsnakes.a
+gcc lwp.c magic64.s test16.c rr.c libncurses.so libsnakes.a
 ./a.out
