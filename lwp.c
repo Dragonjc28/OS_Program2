@@ -11,23 +11,24 @@
 #define tnext lib_two
 #define sprev sched_one
 #define snext sched_two 
+#define NEGONE -1
+#define ZERO 0
+#define ONE 1
 #define FOUR 4
 
 context* rr_next();
 void rr_remove(thread victim);
 void rr_admit(thread new);
-//void printSchedSize();
 
-/* GLOBALS */
 static struct scheduler sched_global = {NULL, NULL, rr_admit, 
  rr_remove, rr_next};
 static scheduler sched = &sched_global;
 static rfile returnContext; /* pointer to original return context */
 static void* returnSP; /* pointer to the return address */
 static context* runningThread = NULL; /* currently running thread */
-static context* head = NULL;
-static thread shead = NULL;
-static tid_t tidCount = 1;
+static context* head = NULL; /* head of the thread linked list */
+static thread shead = NULL; /* head of the scheduler linked list */
+static tid_t tidCount = ONE; /* thread count */
 
 /* set's up a thread’s context to be selected by the scheduler */
 tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
@@ -35,11 +36,8 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    unsigned long *tempBP;
    thread iter = head;
    
-   printf("CREATE\n");
-   fflush(stdout);
-
    /* starts new linked list if head is NULL, else add to end of list */
-   if (tidCount == 1) {
+   if (tidCount == ONE) {
       iter = malloc(sizeof (context));
       iter->tprev = NULL; 
       iter->tnext = NULL;
@@ -53,7 +51,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
 
       /* return error value if malloc fails */
       if (iter->tnext == NULL)
-         return (tid_t) -1;
+         return (tid_t) NEGONE;
       
       iter->tnext->tprev = iter;
       iter = iter->tnext;
@@ -67,7 +65,7 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
 
    /* return error value if stack malloc fails */
    if (iter->stack == NULL)
-      return (tid_t) -1;
+      return (tid_t) NEGONE;
    
    /* assign function parameters to stack, including return address */
    tempSP = iter->stack + stacksize;
@@ -79,24 +77,10 @@ tid_t lwp_create(lwpfun function, void *argument, size_t stacksize) {
    iter->state.rsp = (unsigned long) tempSP;
    iter->state.rbp = (unsigned long) tempBP;
    
-   printf("CREATING THREAD %d\n", iter->tid);
-   fflush(stdout); 
-
    sched->admit(iter);
+   
    return iter->tid;
 }
-
-/*
-void printSchedSize() {
-	thread temp;
-	int i = 0;
-
-   for (temp = shead; temp; temp=temp->snext, i++)
-      ;
-
-   printf("Threads in scheduler:%d\n", i); 
-}
-*/
 
 /* removes specified thread from thread linked list */
 void removeFromLL(thread victim) {
@@ -141,14 +125,9 @@ void lwp_exit(void) {
    removeFromLL(runningThread);
    sched->remove(runningThread);
    thread next = sched->next();	
-   SetSP(safeStack);
 
    /* frees malloced memeory */
-   //free(runningThread);
    free(runningThread->stack);
-   
- 	printf("EXITING THREAD %d\n", runningThread->tid);
-   fflush(stdout); 
 
    /* runs next thread if scheduler not empty, else call lwp_stop */
    if (!next) {
@@ -190,11 +169,8 @@ void lwp_yield(void) {
  */
 void lwp_start(void) {
    /* exit if no threads to start */
-   if (tidCount == 1)
+   if (tidCount == ONE)
       return;
-
-   printf("STARTING\n");
-   fflush(stdout);
    
    /* save previous context and stack pointer */
    save_context(&returnContext);
@@ -204,31 +180,18 @@ void lwp_start(void) {
     * loads new context if next thread exists, else restore previous contest
     */
    runningThread = sched->next();
-   
-   printf("GOT HERE\n");
-   fflush(stdout);
 
-   if (runningThread == NULL) {
-      printf("GO BACK\n");
-      fflush(stdout);
-
+   if (runningThread == NULL)
       load_context(&returnContext);
-   }
-   else {
-      printf("load context\n");
-      fflush(stdout);
-
+   else
       load_context(&(runningThread->state));
-   }
 }
 
 /* stop the LWP system, restore initial system context in the global */
 void lwp_stop(void) {
    /* stores current context and stack pointer before stopping */
-   if (runningThread) {
+   if (runningThread)
       save_context(&(runningThread->state));
-      GetSP(runningThread->state.rsp);
-   }
 
    /* loads globally stored context and stack pointer */
    load_context(&returnContext);
